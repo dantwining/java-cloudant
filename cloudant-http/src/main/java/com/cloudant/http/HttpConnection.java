@@ -92,6 +92,9 @@ public class HttpConnection {
     public final URL url;
     private final String contentType;
 
+    // The context
+    private HttpConnectionInterceptorContext currentContext = null;
+
     // created in executeInternal
     private HttpURLConnection connection;
 
@@ -295,8 +298,9 @@ public class HttpConnection {
                 }
             }
 
-            HttpConnectionInterceptorContext currentContext = new
-                    HttpConnectionInterceptorContext(this);
+            currentContext = (currentContext == null) ? new HttpConnectionInterceptorContext
+                    (this) : new HttpConnectionInterceptorContext(this, currentContext
+                    .interceptorStates);
 
             for (HttpConnectionRequestInterceptor requestInterceptor : requestInterceptors) {
                 currentContext = requestInterceptor.interceptRequest(currentContext);
