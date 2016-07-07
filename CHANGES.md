@@ -1,5 +1,5 @@
 # Unreleased
-- [IMPROVED] Make the 429 response code backoff optional and configurable. To enable the backoff add
+- [IMPROVED] Made the 429 response code backoff optional and configurable. To enable the backoff add
   an instance of a `Replay429Interceptor` with the desired number of retries and initial backoff:
   `ClientBuilder.account("example").interceptors(new Replay429Interceptor(retries, initialBackoff))`
   A default instance is available using 3 retries and starting with a 250 ms backoff:
