@@ -40,6 +40,7 @@ public class Replay429Interceptor implements HttpConnectionResponseInterceptor {
      */
     public static final Replay429Interceptor WITH_DEFAULTS = new Replay429Interceptor(3, 250l);
 
+    private static final String ATTEMPT = "attempt";
     private static final Logger logger = Logger.getLogger(Replay429Interceptor.class.getName());
 
     private final long initialSleep;
@@ -93,11 +94,11 @@ public class Replay429Interceptor implements HttpConnectionResponseInterceptor {
             // We received a 429
 
             // Get the counter from the request context state
-            AtomicInteger attemptCounter = context.getState(this, "attempt", AtomicInteger.class);
+            AtomicInteger attemptCounter = context.getState(this, ATTEMPT, AtomicInteger.class);
 
             // If there was no counter yet, then this is the first 429 received for this request
             if (attemptCounter == null) {
-                context.setState(this, "attempt", (attemptCounter = new AtomicInteger()));
+                context.setState(this, ATTEMPT, (attemptCounter = new AtomicInteger()));
             }
 
             // Get the current value, and then increment for the next time round
