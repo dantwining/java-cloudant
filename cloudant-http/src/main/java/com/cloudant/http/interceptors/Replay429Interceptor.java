@@ -114,7 +114,7 @@ public class Replay429Interceptor implements HttpConnectionResponseInterceptor {
 
                 // If the response includes a Retry-After then that is when we will retry, otherwise
                 // we use the doubling sleep
-                String retryAfter = (preferRetryAfter) ? urlConnection.getHeaderField
+                String retryAfter = preferRetryAfter ? urlConnection.getHeaderField
                         ("Retry-After") : null;
                 if (retryAfter != null) {
                     // See https://tools.ietf.org/html/rfc6585#section-4
