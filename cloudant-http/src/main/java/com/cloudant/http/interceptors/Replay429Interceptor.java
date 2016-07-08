@@ -41,6 +41,8 @@ public class Replay429Interceptor implements HttpConnectionResponseInterceptor {
     public static final Replay429Interceptor WITH_DEFAULTS = new Replay429Interceptor(3, 250l);
 
     private static final String ATTEMPT = "attempt";
+    // Set a Retry-After cap of one hour
+    private static final long RETRY_AFTER_CAP = TimeUnit.HOURS.toMillis(1);
     private static final Logger logger = Logger.getLogger(Replay429Interceptor.class.getName());
 
     private final long initialSleep;
@@ -52,8 +54,8 @@ public class Replay429Interceptor implements HttpConnectionResponseInterceptor {
      * backoff time. Instances created with this constructor will honour Retry-After headers sent by
      * the server if available.
      *
-     * @param numberOfReplays  number of times to replay a request that received a 429
-     * @param initialBackoff   the initial delay before retrying
+     * @param numberOfReplays number of times to replay a request that received a 429
+     * @param initialBackoff  the initial delay before retrying
      */
     public Replay429Interceptor(int numberOfReplays, long initialBackoff) {
         this(numberOfReplays, initialBackoff, true);
@@ -107,10 +109,11 @@ public class Replay429Interceptor implements HttpConnectionResponseInterceptor {
             // Check if we have remaining replays
             if (attempt < numberOfReplays && context.connection.getNumberOfRetriesRemaining() > 0) {
 
-                // If the response includes a Retry-After then that is when we will retry, otherwise
-                // we use a doubling sleep
-                long sleepTime = 0l;
+                // Calculate the backoff time, 2^n * initial sleep
+                long sleepTime = initialSleep * Math.round(Math.pow(2, attempt));
 
+                // If the response includes a Retry-After then that is when we will retry, otherwise
+                // we use the doubling sleep
                 String retryAfter = (preferRetryAfter) ? urlConnection.getHeaderField
                         ("Retry-After") : null;
                 if (retryAfter != null) {
@@ -120,10 +123,17 @@ public class Replay429Interceptor implements HttpConnectionResponseInterceptor {
                     // date formats https://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.3
                     // Cloudant servers should give us an integer number of seconds, so don't worry
                     // about parsing dates for now.
-                    sleepTime = Long.parseLong(retryAfter) * 1000;
-                } else {
-                    // Calculate the backoff time, 2^n * initial sleep
-                    sleepTime = initialSleep * Math.round(Math.pow(2, attempt));
+                    try {
+                        sleepTime = Long.parseLong(retryAfter) * 1000;
+                        if (sleepTime > RETRY_AFTER_CAP) {
+                            sleepTime = RETRY_AFTER_CAP;
+                            logger.severe("Server specified Retry-After value in excess of one " +
+                                    "hour, capping retry.");
+                        }
+                    } catch (NumberFormatException nfe) {
+                        logger.warning("Invalid Retry-After value from server falling back to " +
+                                "default backoff.");
+                    }
                 }
                 // Read the reasons and log a warning
                 InputStream errorStream = urlConnection.getErrorStream();
